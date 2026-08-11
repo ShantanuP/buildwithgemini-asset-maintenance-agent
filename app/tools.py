@@ -4,6 +4,7 @@
 import os
 import sqlite3
 from typing import Any, Dict, List, Optional
+import pypdf
 
 DB_PATH = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), "data", "maintenance_records.db"
@@ -61,10 +62,10 @@ def query_maintenance_db(
 
 
 def query_asset_docs(query_term: str) -> List[Dict[str, Any]]:
-    """Search technical specification manuals, operating guides, and troubleshooting protocols.
+    """Search technical specification manuals, operating guides, and troubleshooting protocols (PDF and Markdown).
 
     Args:
-        query_term: Keyword or topic to search for (e.g., 'pressure', 'filter', 'oil', 'HVAC-03').
+        query_term: Keyword or topic to search for (e.g., 'pressure', 'elevator', 'boiler', 'brake', 'steam').
 
     Returns:
         Matching document sections and excerpt snippets.
@@ -76,25 +77,34 @@ def query_asset_docs(query_term: str) -> List[Dict[str, Any]]:
     query_lower = query_term.lower()
 
     for filename in os.listdir(DOCS_DIR):
-        if not filename.endswith(".md"):
-            continue
-
         filepath = os.path.join(DOCS_DIR, filename)
-        with open(filepath, "r", encoding="utf-8") as f:
-            content = f.read()
+        content = ""
+
+        if filename.endswith(".md"):
+            with open(filepath, "r", encoding="utf-8") as f:
+                content = f.read()
+        elif filename.endswith(".pdf"):
+            try:
+                reader = pypdf.PdfReader(filepath)
+                pages_text = [page.extract_text() or "" for page in reader.pages]
+                content = "\n".join(pages_text)
+            except Exception as e:
+                continue
+        else:
+            continue
 
         if query_lower in content.lower() or any(
             w in content.lower() for w in query_lower.split()
         ):
-            # Extract relevant lines
             matching_lines = [
                 line.strip()
                 for line in content.splitlines()
-                if any(kw in line.lower() for kw in query_lower.split())
+                if line.strip() and any(kw in line.lower() for kw in query_lower.split())
             ]
             matches.append(
                 {
                     "document": filename,
+                    "file_type": "PDF" if filename.endswith(".pdf") else "Markdown",
                     "excerpt": "\n".join(matching_lines[:8]),
                     "full_content": content,
                 }
