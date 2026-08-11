@@ -65,16 +65,19 @@ def query_asset_docs(query_term: str) -> List[Dict[str, Any]]:
     """Search technical specification manuals, operating guides, and troubleshooting protocols (PDF and Markdown).
 
     Args:
-        query_term: Keyword or topic to search for (e.g., 'pressure', 'elevator', 'boiler', 'brake', 'steam').
+        query_term: Keyword or topic to search for (e.g., 'pressure', 'elevator', 'boiler', 'brake', 'steam', 'docs', 'manual').
 
     Returns:
-        Matching document sections and excerpt snippets.
+        Matching document sections, excerpt snippets, and browser download URLs (/docs/<filename>).
     """
     if not os.path.exists(DOCS_DIR):
         return [{"error": f"Docs directory not found at {DOCS_DIR}"}]
 
     matches = []
     query_lower = query_term.lower()
+
+    # If asking generally for docs/links/all, list all files
+    match_all = any(k in query_lower for k in ["all", "doc", "link", "manual", "file", "list", "show", "get"])
 
     for filename in os.listdir(DOCS_DIR):
         filepath = os.path.join(DOCS_DIR, filename)
@@ -93,7 +96,7 @@ def query_asset_docs(query_term: str) -> List[Dict[str, Any]]:
         else:
             continue
 
-        if query_lower in content.lower() or any(
+        if match_all or query_lower in content.lower() or any(
             w in content.lower() for w in query_lower.split()
         ):
             matching_lines = [
@@ -101,11 +104,13 @@ def query_asset_docs(query_term: str) -> List[Dict[str, Any]]:
                 for line in content.splitlines()
                 if line.strip() and any(kw in line.lower() for kw in query_lower.split())
             ]
+            excerpt_text = "\n".join(matching_lines[:8]) if matching_lines else content[:300]
             matches.append(
                 {
-                    "document": filename,
+                    "document_name": filename,
                     "file_type": "PDF" if filename.endswith(".pdf") else "Markdown",
-                    "excerpt": "\n".join(matching_lines[:8]),
+                    "doc_url": f"/docs/{filename}",
+                    "excerpt": excerpt_text,
                     "full_content": content,
                 }
             )

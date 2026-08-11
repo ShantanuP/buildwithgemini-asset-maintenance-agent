@@ -29,10 +29,12 @@ a2ui_instruction = schema_manager.generate_system_prompt(
         "reactive maintenance records, and reference technical specification manuals for building assets."
     ),
     workflow_description=(
-        "1. Identify the building asset (e.g., HVAC-03, Chiller-01, Elevator-02).\n"
+        "1. Identify the building asset (e.g., HVAC-03, Chiller-01, Elevator-02, Boiler-01).\n"
         "2. Query the maintenance database for past preventive/reactive service logs and repair costs.\n"
         "3. Search technical documentation manuals for operating specs, pressure limits, and troubleshooting trees.\n"
-        "4. Calculate maintenance metrics and render concise asset cards and work order summaries using A2UI."
+        "4. Whenever referencing or linking to a document manual, ALWAYS include a clickable markdown link in the format: "
+        "[Document Name](/docs/filename.pdf) or [Document Name](/docs/filename.md) using the doc_url field.\n"
+        "5. Calculate maintenance metrics and render concise asset cards and work order summaries using A2UI."
     ),
     ui_description=(
         "Keep A2UI cards concise and flat: ONE Card > ONE Column > 4 to 6 Text rows summarizing "
@@ -57,7 +59,7 @@ db_agent = Agent(
 docs_agent = Agent(
     name="docs_agent",
     model=Gemini(model=MODEL, retry_options=types.HttpRetryOptions(attempts=3)),
-    instruction="Specialist for searching technical specification manuals, operating parameters, and troubleshooting guides in the documentation folder.",
+    instruction="Specialist for searching technical specification manuals, operating parameters, and troubleshooting guides. Always include clickable markdown links [Filename](/docs/filename) from doc_url.",
     tools=[query_asset_docs],
 )
 
@@ -72,7 +74,7 @@ analytics_agent = Agent(
 root_agent = Agent(
     name="root_agent",
     model=Gemini(model=MODEL, retry_options=types.HttpRetryOptions(attempts=3)),
-    instruction=f"{a2ui_instruction}\n\nYou can delegate specialized tasks to db_agent, docs_agent, and analytics_agent or call tools directly.",
+    instruction=f"{a2ui_instruction}\n\nWhen providing document links, ALWAYS render clickable markdown links like [Document Name](/docs/filename).",
     tools=[
         query_maintenance_db,
         query_asset_docs,
